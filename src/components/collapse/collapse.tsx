@@ -14,8 +14,10 @@ import { mergeProp, mergeProps } from '../../utils/with-default-props'
 import { useConfig } from '../config-provider'
 import List from '../list'
 
+// 콜랩스 컴포넌트의 CSS 클래스 접두사
 const classPrefix = `adm-collapse`
 
+// 콜랩스 패널의 Props 타입 정의
 export type CollapsePanelProps = {
   key: string
   title: ReactNode
@@ -31,10 +33,12 @@ export type CollapsePanelProps = {
   arrow?: ReactNode | ((active: boolean) => ReactNode)
 } & NativeProps
 
+// 콜랩스 패널 컴포넌트 - 실제로는 null을 반환하며 타입 정의용으로만 사용
 export const CollapsePanel: FC<CollapsePanelProps> = () => {
   return null
 }
 
+// 콜랩스 패널 내용 컴포넌트 - 애니메이션과 함께 콘텐츠를 표시/숨김
 const CollapsePanelContent: FC<{
   visible: boolean
   forceRender: boolean
@@ -43,11 +47,13 @@ const CollapsePanelContent: FC<{
 }> = props => {
   const { visible } = props
   const innerRef = useRef<HTMLDivElement>(null)
+  // 렌더링 조건 확인 - forceRender, destroyOnClose 옵션에 따라 결정
   const shouldRender = useShouldRender(
     visible,
     props.forceRender,
     props.destroyOnClose
   )
+  // react-spring을 사용한 높이 애니메이션 설정
   const [{ height }, api] = useSpring(() => ({
     from: { height: 0 },
     config: {
@@ -74,20 +80,28 @@ const CollapsePanelContent: FC<{
     if (!inner) return
 
     if (visible) {
+      // 동적 콘텐츠 높이 변화 감지 및 애니메이션 시스템
+      // 문제: 콜랩스 패널 내용이 동적으로 변할 때 높이 애니메이션이 깨짐
+      // 해결: MutationObserver로 DOM 변화를 감지하여 실시간으로 높이 재계산
       let lastMotionId = 0
       let cancelObserve: VoidFunction = () => {}
 
       const handleMotion = () => {
+        // 동시에 여러 애니메이션이 실행되는 것을 방지하기 위한 ID 시스템
+        // 최신 애니메이션만 유효하도록 하여 깜빡임 현상 방지
         lastMotionId += 1
         const motionId = lastMotionId
 
         api.start({ height: inner.offsetHeight })[0].then(() => {
+          // 애니메이션 완료 시점에서 최신 애니메이션인지 확인 후 observer 해제
           if (motionId === lastMotionId) {
             cancelObserve()
           }
         })
       }
 
+      // DOM 변화 감지: 자식 요소 추가/제거, 텍스트 변경 등을 모두 감지
+      // subtree: true로 중첩된 요소의 변화도 감지하여 완전한 동적 높이 지원
       cancelObserve = observe(
         inner,
         { childList: true, subtree: true },
@@ -96,6 +110,8 @@ const CollapsePanelContent: FC<{
       handleMotion()
       return cancelObserve
     } else {
+      // 닫힐 때: 현재 높이에서 0으로 부드럽게 애니메이션
+      // immediate: true로 시작 높이를 즉시 설정한 후 0으로 애니메이션
       api.start({ height: inner.offsetHeight, immediate: true })
       api.start({ height: 0 })
     }

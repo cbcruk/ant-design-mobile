@@ -13,8 +13,10 @@ import { usePropsValue } from '../../utils/use-props-value'
 import { useResizeEffect } from '../../utils/use-resize-effect'
 import { mergeProps } from '../../utils/with-default-props'
 
+// 탭 컴포넌트의 CSS 클래스 접두사
 const classPrefix = `adm-tabs`
 
+// 개별 탭의 Props 타입 정의
 export type TabProps = {
   title: ReactNode
   disabled?: boolean
@@ -23,10 +25,12 @@ export type TabProps = {
   children?: ReactNode
 } & NativeProps
 
+// 탭 컴포넌트 - 실제로는 null을 반환하며 타입 정의용으로만 사용
 export const Tab: FC<TabProps> = () => {
   return null
 }
 
+// 탭 컨테이너의 Props 타입 정의
 export type TabsProps = {
   activeKey?: string | null
   defaultActiveKey?: string | null
@@ -51,23 +55,29 @@ export type TabsProps = {
   | '--active-line-color'
 >
 
+// 탭 컴포넌트의 기본 속성값들
 const defaultProps = {
   activeLineMode: 'auto',
   stretch: true,
   direction: 'ltr',
 }
 
+// 탭 컨테이너 컴포넌트 - 다중 탭과 활성 라인 애니메이션을 제공하는 복합 컴포넌트
 export const Tabs: FC<TabsProps> = p => {
   const props = mergeProps(defaultProps, p)
+  // 탭 리스트 컨테이너와 활성 라인에 대한 ref
   const tabListContainerRef = useRef<HTMLDivElement>(null)
   const activeLineRef = useRef<HTMLDivElement>(null)
   const tabRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
+  // 키-인덱스 매핑과 첫 번째 활성 키 저장
   const keyToIndexRecord: Record<string, number> = {}
   let firstActiveKey: string | null = null
 
+  // 탭 패널 배열
   const panes: ReactElement<TabProps>[] = []
 
+  // RTL 방향 확인
   const isRTL = props.direction === 'rtl'
 
   traverseReactNode(props.children, (child, index) => {
@@ -91,17 +101,26 @@ export const Tabs: FC<TabsProps> = p => {
     },
   })
 
+  // 활성 라인 애니메이션을 위한 Spring 설정
+  // 문제: 탭 전환 시 활성 라인이 즉시 이동하면 사용자가 변화를 인지하기 어려움
+  // 해결: react-spring으로 부드러운 x좌표/width 애니메이션 제공하여 시각적 연속성 확보
   const [{ x, width }, inkApi] = useSpring(() => ({
     x: 0,
     width: 0,
-    config: { tension: 300, clamp: true },
+    config: { tension: 300, clamp: true }, // 적당한 탄성으로 자연스러운 움직임
   }))
 
+  // 탭 리스트 스크롤 애니메이션
+  // 문제: 탭이 많을 때 활성 탭이 화면 밖에 있으면 사용자가 찾기 어려움
+  // 해결: 활성 탭이 항상 화면 중앙에 위치하도록 자동 스크롤 애니메이션
   const [{ scrollLeft }, scrollApi] = useSpring(() => ({
     scrollLeft: 0,
     config: { tension: 300, clamp: true },
   }))
 
+  // 스크롤 마스크 효과를 위한 불투명도 애니메이션
+  // 문제: 스크롤 가능한 영역의 경계를 사용자가 인지하기 어려움
+  // 해결: 좌우 그라데이션 마스크로 스크롤 가능 여부를 시각적으로 표시
   const [{ leftMaskOpacity, rightMaskOpacity }, maskApi] = useSpring(() => ({
     leftMaskOpacity: 0,
     rightMaskOpacity: 0,
