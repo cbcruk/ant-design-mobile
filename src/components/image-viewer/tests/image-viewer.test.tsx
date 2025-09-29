@@ -46,12 +46,14 @@ jest.mock('../slide', () => {
   }
 })
 
+// ahooks의 useSize 훅을 목업: 이미지와 컨테이너의 크기를 제어하여 maxZoom='auto' 테스트 가능
 jest.mock('ahooks', () => {
   const origin = jest.requireActual('ahooks')
   const { useState, useEffect } = jest.requireActual('react')
 
   return {
     ...origin,
+    // useSize 목업: 요소 타입에 따라 다른 크기 반환
     useSize: (target: React.RefObject<HTMLElement>) => {
       const [, forceUpdate] = useState(0)
       useEffect(() => {
@@ -60,12 +62,16 @@ jest.mock('ahooks', () => {
 
       return target.current instanceof HTMLImageElement
         ? {
-            width: 10,
-            height: 100,
+            // 이미지 실제 크기: 매우 좁고 긴 세로 이미지 (10:100 비율)
+            // 이 크기는 maxZoom='auto' 계산에서 가로 기준으로 10배 확대 허용하게 됨
+            width: 10, // 좁은 너비
+            height: 100, // 긴 높이
           }
         : {
-            width: 100,
-            height: 100,
+            // 컨테이너(뷰포트) 크기: 정사각형 영역
+            // maxZoom='auto' 계산 시 기준이 되는 화면 크기
+            width: 100, // 뷰포트 너비
+            height: 100, // 뷰포트 높이
           }
     },
   }
@@ -309,15 +315,32 @@ describe('ImageViewer', () => {
   })
 
   test('maxZoom support auto', async () => {
+    // maxZoom='auto' 기능 테스트: 이미지 크기와 컨테이너 크기를 비교하여 최대 줌 레벨을 자동 계산
+    //
+    // 테스트 환경 설정 (49-72라인 useSize 목업 참조):
+    // - 이미지 크기: width=10px, height=100px (매우 좁고 긴 세로 이미지)
+    // - 컨테이너 크기: width=100px, height=100px (정사각형 뷰포트)
+    //
+    // maxZoom='auto' 계산 로직 (slide.tsx 참조):
+    // mergedMaxZoom = Math.max(
+    //   controlSize.height / imgSize.height,  // 세로 기준: 100/100 = 1
+    //   controlSize.width / imgSize.width     // 가로 기준: 100/10 = 10
+    // )
+    // 결과: Math.max(1, 10) = 10
+    //
+    // 실제 사용 시나리오: 좁은 이미지(세로 스크린샷, 긴 텍스트 등)를
+    // 화면 가로폭에 맞춰 크게 볼 수 있도록 자동으로 최대 10배 확대 허용
     jest.useFakeTimers()
 
     render(<ImageViewer image={demoImages[0]} visible maxZoom='auto' />)
 
-    // Pinch to zoom bigger
+    // 핀치 제스처로 최대한 크게 확대 시도 (매우 큰 offset 값 사용)
+    // 실제로는 계산된 최대 줌 레벨(10)에서 제한됨
     act(() => {
       triggerPinch([9999999, 9999999])
     })
 
+    // nextZoom=10 검증: 가로 기준 계산값(100÷10=10)이 최대 줌으로 적용됨
     expect(G.nextZoom).toEqual(10)
 
     jest.clearAllTimers()
